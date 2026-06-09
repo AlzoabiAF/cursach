@@ -1,0 +1,496 @@
+{% load static %}<!DOCTYPE html>
+<html lang="ru" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Service Desk — система мониторинга и обработки заявок пользователей.">
+    <meta name="color-scheme" content="light dark">
+    <title>Service Desk — мониторинг заявок</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body>
+    <a class="skip-link" href="#main-content">Перейти к содержимому</a>
+
+    <div id="app" v-cloak>
+        <header class="app-header" role="banner">
+            <div class="container app-header__inner">
+                <a class="app-header__logo" href="/" aria-label="Service Desk — на главную">
+                    <span class="app-header__logo-mark" aria-hidden="true">SD</span>
+                    <span class="app-header__logo-text">Service&nbsp;Desk</span>
+                </a>
+
+                <nav class="app-nav" aria-label="Основная навигация">
+                    <ul class="app-nav__list">
+                        <li>
+                            <button type="button"
+                                    class="app-nav__btn"
+                                    :class="{ 'is-active': activeView === 'all' }"
+                                    @click="activeView = 'all'">
+                                Все заявки
+                                <span class="app-nav__counter" aria-hidden="true">[[ allCount ]]</span>
+                            </button>
+                        </li>
+                        <li>
+                            <button type="button"
+                                    class="app-nav__btn"
+                                    :class="{ 'is-active': activeView === 'mine' }"
+                                    @click="activeView = 'mine'">
+                                Мои заявки
+                                <span class="app-nav__counter" aria-hidden="true">[[ myCount ]]</span>
+                            </button>
+                        </li>
+                        <li>
+                            <button type="button"
+                                    class="app-nav__btn"
+                                    :class="{ 'is-active': activeView === 'favorites' }"
+                                    @click="activeView = 'favorites'">
+                                Избранное
+                                <span class="app-nav__counter" aria-hidden="true">[[ favoritesCount ]]</span>
+                            </button>
+                        </li>
+                    </ul>
+                </nav>
+
+                <div class="app-header__actions">
+                    <button type="button"
+                            class="icon-btn"
+                            @click="toggleTheme"
+                            :aria-label="theme === 'dark' ? 'Включить светлую тему' : 'Включить тёмную тему'"
+                            :title="theme === 'dark' ? 'Светлая тема' : 'Тёмная тема'">
+                        <svg v-if="theme === 'dark'" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                            <circle cx="12" cy="12" r="4" fill="currentColor"/>
+                            <g stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                                <line x1="12" y1="2" x2="12" y2="5"/>
+                                <line x1="12" y1="19" x2="12" y2="22"/>
+                                <line x1="2" y1="12" x2="5" y2="12"/>
+                                <line x1="19" y1="12" x2="22" y2="12"/>
+                                <line x1="4.5" y1="4.5" x2="6.5" y2="6.5"/>
+                                <line x1="17.5" y1="17.5" x2="19.5" y2="19.5"/>
+                                <line x1="4.5" y1="19.5" x2="6.5" y2="17.5"/>
+                                <line x1="17.5" y1="6.5" x2="19.5" y2="4.5"/>
+                            </g>
+                        </svg>
+                        <svg v-else viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                            <path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z" fill="currentColor"/>
+                        </svg>
+                    </button>
+
+                    <button type="button" class="btn btn--primary" @click="openCreateModal">
+                        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                            <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                            <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+                        </svg>
+                        Новая заявка
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <main id="main-content" class="container" tabindex="-1">
+            <section class="hero" aria-labelledby="hero-title">
+                <div class="hero__text">
+                    <h1 id="hero-title" class="hero__title">Мониторинг заявок Service Desk</h1>
+                    <p class="hero__lead">
+                        Отслеживайте обращения пользователей в режиме реального времени,
+                        фильтруйте по статусу, приоритету и категории, отмечайте важное и работайте с собственными заявками.
+                    </p>
+                </div>
+
+                <ul class="stats" aria-label="Сводка по заявкам">
+                    <li class="stats__item">
+                        <span class="stats__value">[[ stats.total ]]</span>
+                        <span class="stats__label">Всего</span>
+                    </li>
+                    <li class="stats__item stats__item--accent">
+                        <span class="stats__value">[[ stats.new ]]</span>
+                        <span class="stats__label">Новые</span>
+                    </li>
+                    <li class="stats__item stats__item--warn">
+                        <span class="stats__value">[[ stats.in_progress ]]</span>
+                        <span class="stats__label">В работе</span>
+                    </li>
+                    <li class="stats__item stats__item--ok">
+                        <span class="stats__value">[[ stats.resolved ]]</span>
+                        <span class="stats__label">Решено</span>
+                    </li>
+                </ul>
+            </section>
+
+            <section class="toolbar" aria-label="Фильтры и поиск">
+                <div class="search">
+                    <label class="visually-hidden" for="search-input">Поиск по заявкам</label>
+                    <svg class="search__icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/>
+                        <line x1="16.5" y1="16.5" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <input id="search-input"
+                           type="search"
+                           class="search__input"
+                           placeholder="Поиск по теме, описанию, автору…"
+                           v-model="search"
+                           autocomplete="off">
+                    <button v-if="search"
+                            type="button"
+                            class="search__clear"
+                            @click="search = ''"
+                            aria-label="Очистить поиск">×</button>
+                </div>
+
+                <div class="filters">
+                    <label class="filter">
+                        <span class="filter__label">Статус</span>
+                        <select v-model="filters.status" class="filter__control">
+                            <option value="">Любой</option>
+                            <option v-for="opt in statusOptions" :value="opt.value">[[ opt.label ]]</option>
+                        </select>
+                    </label>
+
+                    <label class="filter">
+                        <span class="filter__label">Приоритет</span>
+                        <select v-model="filters.priority" class="filter__control">
+                            <option value="">Любой</option>
+                            <option v-for="opt in priorityOptions" :value="opt.value">[[ opt.label ]]</option>
+                        </select>
+                    </label>
+
+                    <label class="filter">
+                        <span class="filter__label">Категория</span>
+                        <select v-model="filters.category" class="filter__control">
+                            <option value="">Любая</option>
+                            <option v-for="cat in categories" :value="cat.id">[[ cat.name ]]</option>
+                        </select>
+                    </label>
+
+                    <button v-if="hasActiveFilters"
+                            type="button"
+                            class="btn btn--ghost"
+                            @click="resetFilters">
+                        Сбросить
+                    </button>
+                </div>
+            </section>
+
+            <section class="results" aria-live="polite" :aria-busy="loading ? 'true' : 'false'">
+                <header class="results__header">
+                    <h2 class="results__title">
+                        <span v-if="activeView === 'mine'">Мои заявки</span>
+                        <span v-else-if="activeView === 'favorites'">Избранные заявки</span>
+                        <span v-else>Все заявки</span>
+                        <span class="results__count">[[ filteredTickets.length ]]</span>
+                    </h2>
+                    <p v-if="error" class="results__error" role="alert">
+                        Не удалось загрузить данные: [[ error ]]
+                        <button class="btn btn--ghost btn--sm" type="button" @click="loadTickets">Повторить</button>
+                    </p>
+                </header>
+
+                <ol v-if="loading" class="ticket-grid" aria-label="Загрузка заявок">
+                    <li v-for="n in 6" :key="n" class="ticket-card skeleton-card" aria-hidden="true">
+                        <div class="skeleton skeleton--line skeleton--w60"></div>
+                        <div class="skeleton skeleton--line skeleton--w90"></div>
+                        <div class="skeleton skeleton--line skeleton--w40"></div>
+                        <div class="skeleton skeleton--badges">
+                            <span class="skeleton skeleton--badge"></span>
+                            <span class="skeleton skeleton--badge"></span>
+                        </div>
+                    </li>
+                </ol>
+
+                <p v-else-if="filteredTickets.length === 0 && !error" class="empty-state">
+                    <svg viewBox="0 0 24 24" width="48" height="48" aria-hidden="true">
+                        <rect x="4" y="6" width="16" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                        <line x1="8" y1="11" x2="16" y2="11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                        <line x1="8" y1="15" x2="14" y2="15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                    <span>Ничего не найдено. Попробуйте изменить фильтры или поисковый запрос.</span>
+                </p>
+
+                <ol v-else class="ticket-grid">
+                    <li v-for="ticket in filteredTickets" :key="ticket.id">
+                        <article class="ticket-card"
+                                 :class="['ticket-card--' + ticket.priority]"
+                                 :aria-labelledby="'ticket-' + ticket.id + '-title'">
+                            <header class="ticket-card__head">
+                                <span class="ticket-card__id">#[[ ticket.id ]]</span>
+                                <span class="badge"
+                                      :class="'badge--status-' + ticket.status">
+                                    [[ ticket.status_label ]]
+                                </span>
+                                <span v-if="isMyTicket(ticket.id)"
+                                      class="badge badge--mine"
+                                      title="Эту заявку создали вы">Ваша</span>
+                                <button type="button"
+                                        class="icon-btn icon-btn--sm ticket-card__fav"
+                                        :class="{ 'is-active': isFavorite(ticket.id) }"
+                                        @click="toggleFavorite(ticket.id)"
+                                        :aria-label="isFavorite(ticket.id) ? 'Убрать из избранного' : 'Добавить в избранное'">
+                                    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                                        <path d="M12 17.3 6.2 20.6l1.5-6.5L2.6 9.7l6.6-.6L12 3l2.8 6.1 6.6.6-5.1 4.4 1.5 6.5z"
+                                              :fill="isFavorite(ticket.id) ? 'currentColor' : 'none'"
+                                              stroke="currentColor"
+                                              stroke-width="1.5"
+                                              stroke-linejoin="round"/>
+                                    </svg>
+                                </button>
+                            </header>
+
+                            <h3 :id="'ticket-' + ticket.id + '-title'" class="ticket-card__title">
+                                [[ ticket.title ]]
+                            </h3>
+
+                            <p class="ticket-card__desc">[[ ticket.description ]]</p>
+
+                            <dl class="ticket-card__meta">
+                                <div class="ticket-card__meta-row">
+                                    <dt>Категория</dt>
+                                    <dd>
+                                        <span class="badge badge--category"
+                                              :style="{ '--badge-bg': ticket.category ? ticket.category.color : '#475569' }">
+                                            [[ ticket.category ? ticket.category.name : 'Без категории' ]]
+                                        </span>
+                                    </dd>
+                                </div>
+                                <div class="ticket-card__meta-row">
+                                    <dt>Приоритет</dt>
+                                    <dd>
+                                        <span class="badge" :class="'badge--prio-' + ticket.priority">
+                                            [[ ticket.priority_label ]]
+                                        </span>
+                                    </dd>
+                                </div>
+                                <div class="ticket-card__meta-row">
+                                    <dt>Автор</dt>
+                                    <dd>
+                                        <address class="ticket-card__author">[[ ticket.author_name ]]</address>
+                                    </dd>
+                                </div>
+                                <div class="ticket-card__meta-row" v-if="ticket.assignee">
+                                    <dt>Исполнитель</dt>
+                                    <dd>[[ ticket.assignee ]]</dd>
+                                </div>
+                                <div class="ticket-card__meta-row">
+                                    <dt>Создана</dt>
+                                    <dd>
+                                        <time :datetime="ticket.created_at">[[ formatDate(ticket.created_at) ]]</time>
+                                    </dd>
+                                </div>
+                                <div class="ticket-card__meta-row">
+                                    <dt>Телефон</dt>
+                                    <dd>
+                                        <button v-if="ticket.author_phone && !isPhoneRevealed(ticket.id)"
+                                                type="button"
+                                                class="masked-btn"
+                                                @click="revealPhone(ticket.id)"
+                                                :aria-label="'Показать телефон заявителя ' + ticket.author_name">
+                                            [[ maskPhone(ticket.author_phone) ]]
+                                            <span class="masked-btn__hint">Показать</span>
+                                        </button>
+                                        <a v-else-if="ticket.author_phone"
+                                           :href="'tel:' + ticket.author_phone"
+                                           class="masked-btn masked-btn--revealed">
+                                            [[ ticket.author_phone ]]
+                                        </a>
+                                        <span v-else class="ticket-card__muted">не указан</span>
+                                    </dd>
+                                </div>
+                            </dl>
+
+                            <footer class="ticket-card__actions">
+                                <label class="status-select" :class="'status-select--' + ticket.status">
+                                    <span class="visually-hidden">Изменить статус заявки #[[ ticket.id ]]</span>
+                                    <select :value="ticket.status"
+                                            @change="changeStatus(ticket, $event.target.value)"
+                                            class="status-select__control">
+                                        <option v-for="opt in statusOptions" :value="opt.value">[[ opt.label ]]</option>
+                                    </select>
+                                    <svg class="status-select__chev" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                                        <polyline points="6 9 12 15 18 9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                </label>
+                                <button type="button"
+                                        class="btn btn--danger btn--sm"
+                                        @click="askDelete(ticket)">
+                                    Удалить
+                                </button>
+                            </footer>
+                        </article>
+                    </li>
+                </ol>
+            </section>
+        </main>
+
+        <footer class="app-footer" role="contentinfo">
+            <div class="container app-footer__inner">
+                <p>Service Desk · Курсовая работа · [[ year ]]</p>
+                <p class="app-footer__note">UI на Vue.js 3, серверная часть — Django.</p>
+            </div>
+        </footer>
+
+        <!-- Модальное окно создания заявки -->
+        <transition name="modal">
+            <div v-if="createModalOpen"
+                 class="modal-backdrop"
+                 role="dialog"
+                 aria-modal="true"
+                 aria-labelledby="create-title"
+                 @click.self="closeCreateModal"
+                 @keydown.esc="closeCreateModal"
+                 tabindex="-1">
+                <div class="modal">
+                    <header class="modal__head">
+                        <h2 id="create-title" class="modal__title">Новая заявка в Service Desk</h2>
+                        <button type="button" class="icon-btn" @click="closeCreateModal" aria-label="Закрыть окно">×</button>
+                    </header>
+
+                    <form class="form" @submit.prevent="submitTicket" novalidate>
+                        <div class="form__row">
+                            <label class="form__field" :class="{ 'is-invalid': formErrors.title }">
+                                <span class="form__label">Тема обращения <abbr title="Обязательное поле" aria-label="обязательное">*</abbr></span>
+                                <input type="text"
+                                       v-model.trim="form.title"
+                                       maxlength="160"
+                                       required
+                                       minlength="5"
+                                       class="form__control"
+                                       placeholder="Например: Не работает Outlook">
+                                <span v-if="formErrors.title" class="form__error" role="alert">[[ formErrors.title ]]</span>
+                                <span class="form__hint">[[ form.title.length ]] / 160 символов</span>
+                            </label>
+                        </div>
+
+                        <div class="form__row form__row--two">
+                            <label class="form__field" :class="{ 'is-invalid': formErrors.category_id }">
+                                <span class="form__label">Категория <abbr title="Обязательное поле">*</abbr></span>
+                                <select v-model="form.category_id" required class="form__control">
+                                    <option value="" disabled>— выберите —</option>
+                                    <option v-for="cat in categories" :value="cat.id">[[ cat.name ]]</option>
+                                </select>
+                                <span v-if="formErrors.category_id" class="form__error" role="alert">[[ formErrors.category_id ]]</span>
+                            </label>
+
+                            <label class="form__field">
+                                <span class="form__label">Приоритет</span>
+                                <select v-model="form.priority" class="form__control">
+                                    <option v-for="opt in priorityOptions" :value="opt.value">[[ opt.label ]]</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        <div class="form__row">
+                            <label class="form__field" :class="{ 'is-invalid': formErrors.description }">
+                                <span class="form__label">Описание <abbr title="Обязательное поле">*</abbr></span>
+                                <textarea v-model.trim="form.description"
+                                          rows="5"
+                                          minlength="10"
+                                          required
+                                          class="form__control"
+                                          placeholder="Опишите проблему: что произошло, какие действия привели к ошибке, что вы уже пробовали."></textarea>
+                                <span v-if="formErrors.description" class="form__error" role="alert">[[ formErrors.description ]]</span>
+                            </label>
+                        </div>
+
+                        <div class="form__row form__row--two">
+                            <label class="form__field" :class="{ 'is-invalid': formErrors.author_name }">
+                                <span class="form__label">Ваше имя <abbr title="Обязательное поле">*</abbr></span>
+                                <input type="text"
+                                       v-model.trim="form.author_name"
+                                       required
+                                       minlength="2"
+                                       maxlength="80"
+                                       class="form__control"
+                                       placeholder="Иван Иванов">
+                                <span v-if="formErrors.author_name" class="form__error" role="alert">[[ formErrors.author_name ]]</span>
+                            </label>
+
+                            <label class="form__field" :class="{ 'is-invalid': formErrors.author_email }">
+                                <span class="form__label">E-mail <abbr title="Обязательное поле">*</abbr></span>
+                                <input type="email"
+                                       v-model.trim="form.author_email"
+                                       required
+                                       pattern="[^@\s]+@[^@\s]+\.[^@\s]+"
+                                       class="form__control"
+                                       placeholder="name@corp.local">
+                                <span v-if="formErrors.author_email" class="form__error" role="alert">[[ formErrors.author_email ]]</span>
+                            </label>
+                        </div>
+
+                        <div class="form__row">
+                            <label class="form__field">
+                                <span class="form__label">Телефон (необязательно)</span>
+                                <input type="tel"
+                                       v-model.trim="form.author_phone"
+                                       class="form__control"
+                                       placeholder="+7 (___) ___-__-__">
+                            </label>
+                        </div>
+
+                        <p v-if="formGeneralError" class="form__error form__error--general" role="alert">
+                            [[ formGeneralError ]]
+                        </p>
+
+                        <footer class="form__actions">
+                            <button type="button" class="btn btn--ghost" @click="closeCreateModal">Отмена</button>
+                            <button type="submit"
+                                    class="btn btn--primary"
+                                    :disabled="submitting">
+                                <span v-if="submitting" class="spinner" aria-hidden="true"></span>
+                                <span>[[ submitting ? 'Отправка…' : 'Создать заявку' ]]</span>
+                            </button>
+                        </footer>
+                    </form>
+                </div>
+            </div>
+        </transition>
+
+        <!-- Модальное подтверждение удаления -->
+        <transition name="modal">
+            <div v-if="confirmDelete"
+                 class="modal-backdrop"
+                 role="alertdialog"
+                 aria-modal="true"
+                 aria-labelledby="confirm-title"
+                 @click.self="cancelDelete"
+                 @keydown.esc="cancelDelete">
+                <div class="modal modal--sm">
+                    <header class="modal__head">
+                        <h2 id="confirm-title" class="modal__title">Удалить заявку?</h2>
+                    </header>
+                    <div class="modal__body">
+                        <p>
+                            Вы уверены, что хотите удалить заявку
+                            <strong>#[[ confirmDelete.id ]] «[[ confirmDelete.title ]]»</strong>?
+                            Действие необратимо.
+                        </p>
+                    </div>
+                    <footer class="form__actions">
+                        <button type="button" class="btn btn--ghost" @click="cancelDelete">Отмена</button>
+                        <button type="button" class="btn btn--danger" @click="performDelete" :disabled="deleting">
+                            <span v-if="deleting" class="spinner" aria-hidden="true"></span>
+                            <span>[[ deleting ? 'Удаление…' : 'Да, удалить' ]]</span>
+                        </button>
+                    </footer>
+                </div>
+            </div>
+        </transition>
+
+        <!-- Уведомления (toast) -->
+        <div class="toast-stack" aria-live="polite">
+            <transition-group name="toast">
+                <div v-for="t in toasts" :key="t.id" class="toast" :class="'toast--' + t.type" role="status">
+                    [[ t.message ]]
+                </div>
+            </transition-group>
+        </div>
+    </div>
+
+    <script>
+        window.SD_CONFIG = {
+            apiBase: "/api/",
+            initialTheme: localStorage.getItem("sd_theme") || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        };
+        document.documentElement.dataset.theme = window.SD_CONFIG.initialTheme;
+    </script>
+    <script src="https://unpkg.com/vue@3.4.27/dist/vue.global.prod.js"></script>
+    <script src="{% static 'js/app.js' %}"></script>
+</body>
+</html>
